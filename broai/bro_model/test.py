@@ -74,4 +74,3 @@ def new_function() -> None:
 
 old_function()  # Works but will show a warning
 new_function()  # This is the preferred function
-
