@@ -15,7 +15,7 @@ class Tool(BaseModel):
         # return data
         return cls.model_validate_json(data)
 
-class ToolBox(BaseModel):
+class ToolBro(BaseModel):
     tools:List[Callable]
     
     def _as_prompt(self):
@@ -26,7 +26,7 @@ class ToolBox(BaseModel):
             params = {}
             for k, v in tool.__annotations__.items():
                 dtype, desc = get_args(v)
-                if (k!='return') & (type(v)==typing._AnnotatedAlias):
+                if (k!='return') & isinstance(v, typing._AnnotatedAlias):
                     params.update({k:desc})
             
             prompt.append(
@@ -36,7 +36,7 @@ class ToolBox(BaseModel):
             )
         return "\n".join(prompt)
     
-    def as_prompt(self):
+    def to_prompt(self):
         prompt = ["Read the input carefully, think what the input is all about and which tool is the best match. Return only the name and parameters of these tools\n"] 
         json_schemas = []
         for tool in self.tools:

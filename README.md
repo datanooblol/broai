@@ -1,28 +1,27 @@
-# Yo Bro!!
+# BroAI: If you want to be a bro, you need to use broai.
 
-This is a library to help you develop AI Chatbot or Agent easier.  
+BroAI is a library designed to help you develop AI Chatbots or Agents with ease.
 
-Here what is my plan, bro:  
+## Features
 
-## BroTool
-Here is a class that can magically change your function into LLM readable format. 
+### ToolBro
+A class that transforms your functions into a format readable by Large Language Models (LLMs).
 
-- This is gonna act as a wrapper function or pydantic class that convert it into to prompt for LLM.  
-- This should not be any problem in installing since I plan to make it simple.  
+- Acts as a wrapper function or Pydantic class to convert functions into prompts for LLMs.
+- Simple installation and usage.
 
-## BroAgent  
-Here is a class where you can pack some ideas into a ready to use prompt.  
+### AgentBro
+A class to package ideas into ready-to-use prompts.
 
-- This may include your bro: name, persona, background, example, structured_output.  
-- Example class is where you give your BroAgent an example what to do.
-- BroAgent will be easy to integrate with any kind of LLM in the market, but you need to wrap in all up as in BroModel which I'll explain it later
+- Includes attributes like name, persona, background, examples, and structured output.
+- Example class provides your AgentBro with examples of what to do.
+- Easy integration with any LLM in the market, wrapped in a BroModel.
 
+### Pydantic Integration
+BroAI provides RequestBro, ResponseBro, and FieldBro to wrap Pydantic's BaseModel.
 
-## BroModel  
-Here is where your LLM is live here.  
+- Simplifies integration with Pydantic's BaseModel and Field.
+- Allows easy wrapping of any LLM in a structured format for seamless integration.
 
-- This is gonna be dead simple. You just warp any LLM you prefer in our explictly instructed structure, so you can integreate with me easily. 
-- BroModel will follow the practice using a class with `__call__` in the object, so we can do it like a breeze.  
-
-# Future updates  
-Nah bro, I'll try to do only this first.
+## Future Updates
+Initial focus will be on the above features.

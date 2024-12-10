@@ -3,6 +3,8 @@ import inspect
 from typing import Callable, get_args
 
 def extract_json_from_codeblock(content: str) -> str:
+    content = content.split("```json")[1]
+    content = content.split("```")[0]
     first_paren = content.find("{")
     last_paren = content.rfind("}")
     return content[first_paren : last_paren + 1]
