@@ -1,26 +1,35 @@
-from typing import Optional
+from typing import Optional, List, Dict, Any
 
-def get_batch_update_query(table:str, schemas:dict, param:str, ref_keys:list):
+def get_batch_update_query(table:str, schemas:dict, data:str, ref_keys:list)->str:
     query = f"""
     CREATE TEMP TABLE updates ({", ".join([f"{field} {schema}" for field, schema in schemas.items()])});
-    INSERT INTO updates ({", ".join([f"{field}" for field in schemas.keys()])}) VALUES {param};
+    INSERT INTO updates ({", ".join([f"{field}" for field in schemas.keys()])}) VALUES {data};
 
     UPDATE {table}
     SET {", ".join([f"{field} = updates.{field}" for field in schemas.keys() if field not in ref_keys])}
     FROM updates
     WHERE {" AND ".join([f"{table}.{field} = updates.{field}" for field in schemas.keys() if field in ref_keys])};
-    """
+    """.strip()
     return query
 
-def get_where_statement(where:Optional[str]):
+def get_where_statement(where:Optional[str])->str:
     return f"WHERE {where.replace(';', '')}" if where is not None else ""
 
-def get_create_table_query(table, schemas):
-    param = "\n\t".join([f"{field} {dtype}" for field, dtype in schemas.items()])
+def get_create_table_query(table:str, schemas:Dict[str, Any])->str:
+    param = ",\n\t".join([f"{field} {dtype}".replace('', '') for field, dtype in schemas.items()])
     query = f"""
     CREATE TABLE IF NOT EXISTS {table} (\n\t{param}\n);
     """.strip()
     return query
 
-def get_insert_query(table, schemas):
-    ...
+def get_insert_query(table:str, fields:List[str], data:str)->str:
+    query = f"""
+    INSERT INTO {table} ({", ".join(fields).replace(";", "")}) VALUES {data.replace(";", "")};
+    """.strip()
+    return query
+
+def get_select_query(table:str, fields:List[str], where:Optional[str]=None)->str:
+    query = f"""
+    SELECT {", ".join(fields)} FROM {table} {where};
+    """
+    return query
