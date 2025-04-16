@@ -12,9 +12,6 @@ def get_batch_update_query(table:str, schemas:dict, data:str, ref_keys:list)->st
     """.strip()
     return query
 
-def get_where_statement(where:Optional[str])->str:
-    return f"WHERE {where.replace(';', '')}" if where is not None else ""
-
 def get_create_table_query(table:str, schemas:Dict[str, Any])->str:
     param = ",\n\t".join([f"{field} {dtype}".replace('', '') for field, dtype in schemas.items()])
     query = f"""
@@ -32,4 +29,12 @@ def get_select_query(table:str, fields:List[str], where:Optional[str]=None)->str
     query = f"""
     SELECT {", ".join(fields)} FROM {table} {where};
     """
+    return query
+
+def get_delete_query(table:str, where_condition:str):
+    where_condition = where_condition.replace(";", "").strip()
+    text = "where "
+    if where_condition.lower().startswith(text):
+        where_condition = where_condition[len(text):]
+    query = f"""DELETE FROM {table} WHERE {where_condition};"""
     return query

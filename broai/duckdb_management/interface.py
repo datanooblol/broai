@@ -1,6 +1,6 @@
 import duckdb
 from typing import Any, Literal, List, Dict, Optional
-from broai.duckdb_management.utils import get_create_table_query, get_insert_query, get_select_query, get_batch_update_query
+from broai.duckdb_management.utils import get_create_table_query, get_select_query, get_insert_query, get_batch_update_query, get_delete_query
 import pandas as pd
 import os
 
@@ -51,4 +51,8 @@ class DuckStoreInterface:
 
     def update(self, schemas:Dict[str, Any], data:str, ref_keys:List[str])->None:
         query = get_batch_update_query(table=self.table, schemas=schemas, data=data, ref_keys=ref_keys)
+        self.sql(query)
+
+    def delete(self, where_condition:str)->None:
+        query = get_delete_query(table=self.table, where_condition=where_condition)
         self.sql(query)
