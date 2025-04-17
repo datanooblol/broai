@@ -1,28 +1,33 @@
-# Yo Bro!!
+# 🧠 BroAI
+#### You ain't a real bro 'til you roll with BroAI.
 
-This is a library to help you develop AI Chatbot or Agent easier.  
+Build, run, and manage AI agents like a champ. LLMs? Prompts? DuckDBs? BroAI's got your six.
 
-Here what is my plan, bro:  
+## 🗂️ File Flow
+- core.py – big brain moves.
 
-## BroTool
-Here is a class that can magically change your function into LLM readable format. 
+- interface.py – shape of things.
 
-- This is gonna act as a wrapper function or pydantic class that convert it into to prompt for LLM.  
-- This should not be any problem in installing since I plan to make it simple.  
+- utils.py – helper bros.
 
-## BroAgent  
-Here is a class where you can pack some ideas into a ready to use prompt.  
+## 🚀 Modules
+### agent_management
+Spawn a BroAgent. Let it handle biz.
 
-- This may include your bro: name, persona, background, example, structured_output.  
-- Example class is where you give your BroAgent an example what to do.
-- BroAgent will be easy to integrate with any kind of LLM in the market, but you need to wrap in all up as in BroModel which I'll explain it later
+### duckdb_management
+SQL like a savage. Spin up DuckDBs in seconds.
 
+### llm_management
+Talk to LLaMA via AWS Bedrock. Smooth convo, bro.
 
-## BroModel  
-Here is where your LLM is live here.  
+### prompt_management
+Prompt game strong. Plug into BroAgent, drop heat.
 
-- This is gonna be dead simple. You just warp any LLM you prefer in our explictly instructed structure, so you can integreate with me easily. 
-- BroModel will follow the practice using a class with `__call__` in the object, so we can do it like a breeze.  
+## 🛠️ Future Vibes
+- 📄 Chunk docs like a sushi master.
 
-# Future updates  
-Nah bro, I'll try to do only this first.
+- 🔁 RAG-ready power moves.
+
+- 🧰 More tools, less hassle.
+
+Stick around. BroAI’s just heating up. 🔥
