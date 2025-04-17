@@ -1,27 +1,33 @@
-# BroAI: If you want to be a bro, you need to use broai.
+# 🧠 BroAI
+#### You ain't a real bro 'til you roll with BroAI.
 
-BroAI is a library designed to help you develop AI Chatbots or Agents with ease.
+Build, run, and manage AI agents like a champ. LLMs? Prompts? DuckDBs? BroAI's got your six.
 
-## Features
+## 🗂️ File Flow
+- core.py – big brain moves.
 
-### ToolBro
-A class that transforms your functions into a format readable by Large Language Models (LLMs).
+- interface.py – shape of things.
 
-- Acts as a wrapper function or Pydantic class to convert functions into prompts for LLMs.
-- Simple installation and usage.
+- utils.py – helper bros.
 
-### AgentBro
-A class to package ideas into ready-to-use prompts.
+## 🚀 Modules
+### agent_management
+Spawn a BroAgent. Let it handle biz.
 
-- Includes attributes like name, persona, background, examples, and structured output.
-- Example class provides your AgentBro with examples of what to do.
-- Easy integration with any LLM in the market, wrapped in a BroModel.
+### duckdb_management
+SQL like a savage. Spin up DuckDBs in seconds.
 
-### Pydantic Integration
-BroAI provides RequestBro, ResponseBro, and FieldBro to wrap Pydantic's BaseModel.
+### llm_management
+Talk to LLaMA via AWS Bedrock. Smooth convo, bro.
 
-- Simplifies integration with Pydantic's BaseModel and Field.
-- Allows easy wrapping of any LLM in a structured format for seamless integration.
+### prompt_management
+Prompt game strong. Plug into BroAgent, drop heat.
 
-## Future Updates
-Initial focus will be on the above features.
+## 🛠️ Future Vibes
+- 📄 Chunk docs like a sushi master.
+
+- 🔁 RAG-ready power moves.
+
+- 🧰 More tools, less hassle.
+
+Stick around. BroAI’s just heating up. 🔥
