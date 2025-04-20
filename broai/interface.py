@@ -13,6 +13,32 @@ class Context(BaseModel):
     type:Literal["document"] = Field(description="type of ducument", default="document")
     created_at: datetime = Field(description="Timestamp Asia/Bangkok", default_factory=get_timestamp)
 
+class Contexts(BaseModel):
+    contexts:List[Context] = Field(default_factory=list)
+
+    def add_context(self, context:Context):
+        if not isinstance(context, Context):
+            raise TypeError(f"context must be of type: Context, not {type(context)}.")
+        self.contexts.append(context)
+
+    def add_contexts(self, contexts:List[Context]):
+        if not isinstance(contexts, list):
+            raise TypeError(f"contexts must be of type list, not {type(contexts)}")
+        for context in contexts:
+            self.add_context(context=context)
+
+    def as_knowledge(self):
+        contexts = []
+        for context in self.contexts:
+            metadata = context.metadata.copy()
+            c = context.context
+            contexts.append(
+                f"Source: {metadata.get('source', 'unknown')}\nContext: \n{c}"
+            )
+        prompt = '\n\n'.join(contexts)
+        prompt = f"Knowledge: \n\n{prompt}"
+        return prompt
+
 class TaskStatus(str, Enum):
     NOT_STARTED = "not_started"
     PENDING = "pending"

@@ -2,7 +2,7 @@ import functools
 import warnings
 
 class experiment:
-    default_message = "You're using an experimental function"
+    default_message = "You're using an experimental module, which is subject to change in future."
 
     def __init__(self, message=None):
         self.message = message or self.default_message
