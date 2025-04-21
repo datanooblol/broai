@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field
 from broai.experiments.utils import experiment
 
 from enum import Enum
-class EmbeddingDimesion(Enum):
+class EmbeddingDimension(Enum):
     BAAI_BGE_M3 = 1024
 
 @experiment
