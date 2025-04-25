@@ -1,14 +1,21 @@
 from FlagEmbedding import BGEM3FlagModel
-from typing import Literal, List, Optional, Any
+from typing import Literal, List, Optional, Any, Protocol
 from pydantic import BaseModel, Field
 from broai.experiments.utils import experiment
-
 from enum import Enum
+import numpy as np
+from abc import ABC, abstractmethod
+
 class EmbeddingDimension(Enum):
     BAAI_BGE_M3 = 1024
 
+class BaseEmbeddingModel(ABC):
+    @abstractmethod
+    def run(self, sentences: List[str]) -> np.ndarray:
+        ...
+
 @experiment
-class BAAIEmbedding(BaseModel):
+class BAAIEmbedding(BaseEmbeddingModel, BaseModel):
     model_id: Literal["BAAI/bge-m3"] = Field(default="BAAI/bge-m3")
     use_fp16: bool = Field(default=True)
     batch_size:Optional[int] = Field(default=None)

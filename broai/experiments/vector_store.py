@@ -4,12 +4,29 @@ from typing import List, Dict, Any, Literal
 import duckdb
 import os
 import json
+from broai.experiments.utils import experiment
+from broai.experiments.huggingface_embedding import BaseEmbeddingModel
 
+def validate_baseclass(input_instance, input_name, baseclass):
+    if not isinstance(input_instance, baseclass):
+        raise TypeError(f"{input_name} must be of type, {baseclass.__name__}. Instead got {type(input_instance)}")
+    return input_instance
+
+@experiment
 class DuckVectorStore:
-    def __init__(self, db_name:str, table:str, embedding:Any, limit:int=5):
+    """
+    A vector store backed by DuckDB.
+
+    Args:
+        db_name (str): Path to the DuckDB file (e.g., './duckmemory.db').
+        table (str): Name of the table to store embeddings.
+        embedding (BaseEmbeddingModel): An embedding model that implements the `.run()` method.
+        limit (int, optional): Default number of top results to return. Defaults to 5.
+    """
+    def __init__(self, db_name:str, table:str, embedding:BaseEmbeddingModel, limit:int=5):
         self.db_name = db_name
         self.table = table
-        self.embedding_model = embedding
+        self.embedding_model = validate_baseclass(embedding, "embedding", BaseEmbeddingModel)
         self.embedding_size = self.embedding_model.run(["test"]).shape[1]
         self.limit = limit
         self.__schemas = {
@@ -19,7 +36,7 @@ class DuckVectorStore:
             "embedding": f"FLOAT[{self.embedding_size}]"
         }
         self.create_table()
-
+    
     def sql(self, query, params:Dict[str, Any]=None):
         with duckdb.connect(self.db_name) as con:
             con.sql(query, params=params)
@@ -43,20 +60,20 @@ class DuckVectorStore:
     def get_schemas(self):
         return self.__schemas
 
-    def vector_search(self, search_term:str, limit:int=5, context:bool=True):
-        vector = self.embedding_model.run(sentences=[search_term])[0]
+    def vector_search(self, search_query:str, limit:int=5, context:bool=True):
+        vector = self.embedding_model.run(sentences=[search_query])[0]
         query = f"""SELECT *, array_cosine_similarity(embedding, $searchVector::FLOAT[{self.embedding_size}]) AS score FROM {self.table} ORDER BY score DESC LIMIT {limit};"""
         if context==False:
             return self.sql_df(query=query, params=dict(searchVector=vector))
         return self.sql_contexts(query=query, params=dict(searchVector=vector))
 
-    def fulltext_search(self, search_term:str, limit:int=5, context:bool=True):
+    def fulltext_search(self, search_query:str, limit:int=5, context:bool=True):
         query = f"""\
         SELECT *
         FROM (
             SELECT *, fts_main_{self.table}.match_bm25(
                 id,
-                '{search_term}',
+                '{search_query}',
                 fields := 'context'
             ) AS score
             FROM {self.table}

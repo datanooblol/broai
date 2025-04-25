@@ -16,8 +16,8 @@ class ReRanker(BaseModel):
     def get_model(self):
         return CrossEncoder(model_name_or_path=self.model_id)
 
-    def run(self, query:str, contexts:List[Context], top_n:int=5):
-        paired_sentences = [[query, context.context] for context in contexts]
+    def run(self, search_query:str, contexts:List[Context], top_n:int=5):
+        paired_sentences = [[search_query, context.context] for context in contexts]
         scores = self.model.predict(paired_sentences)
         top_rank = scores.argsort()[::-1][:top_n]
         ranked_contents = [contexts[n] for n in top_rank]
