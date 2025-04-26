@@ -1,19 +1,70 @@
 from broai.duckdb_management.utils import get_create_table_query, get_insert_query
 from broai.interface import Context
-from typing import List, Dict, Any, Literal
+from typing import List, Dict, Any, Literal, Tuple
 import duckdb
 import os
 import json
 from broai.experiments.utils import experiment
 from broai.experiments.huggingface_embedding import BaseEmbeddingModel
+from functools import wraps
 
 def validate_baseclass(input_instance, input_name, baseclass):
     if not isinstance(input_instance, baseclass):
         raise TypeError(f"{input_name} must be of type, {baseclass.__name__}. Instead got {type(input_instance)}")
     return input_instance
 
+def get_json_where_query(field:str, filter_metadata:Dict[str, Any]=None):
+    if filter_metadata is None:
+        return ""
+    query = []
+    str_int = lambda k, v: f"{field} ->> '{k}' = '{v}'" if isinstance(v, str) else f"CAST({field} ->> '{k}' AS INTEGER) = {v}"
+    for k, v in filter_metadata.items():
+        query.append(str_int(k, v))
+    return f"WHERE {' AND '.join(query)}"
+
+class BaseVectorStore:
+    def __init__(self, db_name:str, table, schemas:Dict[str, Any]):
+        self.db_name = db_name
+        self.table = table
+        self.__schemas = schemas
+        self.create_table()
+
+    def sql(self, query, params:Dict[str, Any]=None):
+        with duckdb.connect(self.db_name) as con:
+            con.sql(query, params=params)
+
+    def sql_df(self, query, params:Dict[str, Any]=None):
+        with duckdb.connect(self.db_name) as con:
+            df = con.sql(query, params=params).to_df()
+        return df
+
+    def executemany(self, query, rows:List[Tuple[Any]]):
+        with duckdb.connect(self.db_name) as con:
+            con.executemany(query, rows)
+    
+    def show_schemas(self):
+        return self.__schemas
+
+    def delete_table(self):
+        query = f"DELETE FROM {self.table};"
+        self.sql(query)
+
+    def drop_table(self)->None:
+        query = f"""DROP TABLE {self.table};"""
+        self.sql(query)
+
+    def create_table(self,):
+        query = get_create_table_query(table=self.table, schemas=self.show_schemas())
+        self.sql(query)
+
+    def remove_database(self, confirm:str=None)->None:
+        if confirm == f"remove {self.db_name}":
+            os.remove(self.db_name)
+            return
+        print(f"If you want to remove database, use confirm 'remove {self.db_name}'")
+
 @experiment
-class DuckVectorStore:
+class DuckVectorStore(BaseVectorStore):
     """
     A vector store backed by DuckDB.
 
@@ -24,46 +75,59 @@ class DuckVectorStore:
         limit (int, optional): Default number of top results to return. Defaults to 5.
     """
     def __init__(self, db_name:str, table:str, embedding:BaseEmbeddingModel, limit:int=5):
-        self.db_name = db_name
-        self.table = table
         self.embedding_model = validate_baseclass(embedding, "embedding", BaseEmbeddingModel)
         self.embedding_size = self.embedding_model.run(["test"]).shape[1]
         self.limit = limit
-        self.__schemas = {
+        schemas = {
             "id": "VARCHAR",
             "context": "VARCHAR",
             "metadata": "JSON",
-            "embedding": f"FLOAT[{self.embedding_size}]"
+            "type": "VARCHAR",
+            "embedding": f"FLOAT[{self.embedding_size}]",
+            "created_at": "TIMESTAMP",
+            "updated_at": "TIMESTAMP",
         }
-        self.create_table()
+        super().__init__(db_name=db_name, table=table, schemas=schemas)
+
+    @staticmethod
+    def with_fts_index(func):
+        @wraps(func)
+        def wrapper(self, *args, **kwargs):
+            result = func(self, *args, **kwargs)
+            self.create_fts_index()
+            return result
+        return wrapper
     
-    def sql(self, query, params:Dict[str, Any]=None):
-        with duckdb.connect(self.db_name) as con:
-            con.sql(query, params=params)
+    # ---- [Create] ---- #
+    @with_fts_index
+    def add_contexts(self, contexts:List[Context]):
+        id_list = [c.id for c in contexts]
+        context_list = [c.context for c in contexts]
+        metadata_list = [c.metadata for c in contexts]
+        type_list = [c.type for c in contexts]
+        embedding_list = self.embedding_model.run(context_list)
+        created_list = [c.created_at for c in contexts]
+        rows = list(zip(id_list, context_list, metadata_list, type_list, embedding_list, created_list, created_list))
+        query = f"INSERT INTO {self.table} (id, context, metadata, type, embedding, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
+        self.executemany(query, rows)
 
-    def sql_df(self, query, params:Dict[str, Any]=None):
-        with duckdb.connect(self.db_name) as con:
-            df = con.sql(query, params=params).to_df()
-        return df
+    # ---- [Read] ---- #
+    def read_all(self):
+        query = f"SELECT * FROM {self.table};"
+        return self.sql_df(query)
 
-    def sql_contexts(self, query, params:Dict[str, Any]=None):
-        df = self.sql_df(query, params=params)
-        if df.shape[0]==0:
-            return
-        df = df.loc[~df['score'].isna(), ["id", "context", "metadata"]].copy()
-        return [Context(id=record["id"], context=record["context"], metadata=json.loads(record["metadata"])) for record in df.to_dict(orient="records")]
-    
-    def create_table(self,):
-        query = get_create_table_query(table=self.table, schemas=self.__schemas)
-        self.sql(query)
+    def read_by_ids(self, ids:List[str]):
+        params = ", ".join([f'{i}' for i in ids])
+        query = f"SELECT * FROM {self.table} WHERE id IN ({params});"
+        return self.sql_df(query)
 
-    def get_schemas(self):
-        return self.__schemas
-
-    def vector_search(self, search_query:str, limit:int=5, context:bool=True):
+    def vector_search(self, search_query:str, filter_metadata:Dict[str, Any]=None, context:bool=True, limit:int=None):
+        if limit is None or not isinstance(limit, int):
+            limit = self.limit
         vector = self.embedding_model.run(sentences=[search_query])[0]
-        query = f"""SELECT *, array_cosine_similarity(embedding, $searchVector::FLOAT[{self.embedding_size}]) AS score FROM {self.table} ORDER BY score DESC LIMIT {limit};"""
-        if context==False:
+        filter_query = get_json_where_query(field="metadata", filter_metadata=filter_metadata)
+        query = f"""SELECT *, array_cosine_similarity(embedding, $searchVector::FLOAT[{self.embedding_size}]) AS score FROM {self.table} {filter_query} ORDER BY score DESC LIMIT {limit};"""
+        if context is False:
             return self.sql_df(query=query, params=dict(searchVector=vector))
         return self.sql_contexts(query=query, params=dict(searchVector=vector))
 
@@ -80,37 +144,35 @@ class DuckVectorStore:
         ) sq
         ORDER BY score DESC;
         """
-        if context==False:
+        if context is False:
             return self.sql_df(query=query, params=None)
         return self.sql_contexts(query=query, params=None)
-    
-    def add_contexts(self, contexts:List[Context]):
+
+    # ---- [Update] ---- #
+    @with_fts_index
+    def update_contexts(self, contexts:List[Context]):
         id_list = [c.id for c in contexts]
         context_list = [c.context for c in contexts]
         metadata_list = [c.metadata for c in contexts]
-        embedding_list = self.embedding_model.run(context_list)
-        rows = list(zip(id_list, context_list, metadata_list, embedding_list))
-        with duckdb.connect(self.db_name) as con:
-            con.executemany(f"INSERT INTO {self.table} (id, context, metadata, embedding) VALUES (?, ?, ?, ?)", rows)
-        self.create_fts_index()
+        created_list = [c.created_at for c in contexts]
+        rows = list(zip(context_list, metadata_list, created_list, id_list))
+        query = f"UPDATE {self.table} SET context = ?, metadata = ?, updated_at = ? WHERE id = ?"
+        self.executemany(query, rows)
 
-    def read(self, ):
-        query = f"SELECT * FROM {self.table};"
-        return self.sql_df(query)
+    # ---- [Delete] ---- #
+    @with_fts_index
+    def delete_contexts(self, contexts:List[Context]):
+        rows = [(c.id,) for c in contexts]
+        query = f"DELETE FROM {self.table} WHERE id = ?"
+        self.executemany(query, rows)
 
-    def delete_table(self, ):
-        query = f"DELETE FROM {self.table};"
-        self.sql(query)
-
-    def drop_table(self)->None:
-        query = f"""DROP TABLE {self.table};"""
-        self.sql(query)
-
-    def remove_database(self, confirm:Literal["remove database"]=None)->None:
-        if confirm == "remove database":
-            os.remove(self.db_name)
+    # ---- [Utils] ---- #
+    def sql_contexts(self, query, params:Dict[str, Any]=None):
+        df = self.sql_df(query, params=params)
+        if df.shape[0]==0:
             return
-        print("If you want to remove database, use confirm 'remove database'")
+        df = df.loc[~df['score'].isna(), ["id", "context", "metadata", "type", "updated_at"]].copy()
+        return [Context(id=record["id"], context=record["context"], metadata=json.loads(record["metadata"]), type=record['type'], created_at=record['updated_at']) for record in df.to_dict(orient="records")]
 
     def create_fts_index(self):
         query = f"""
@@ -121,4 +183,3 @@ class DuckVectorStore:
         );
         """.strip()
         self.sql(query)
-    

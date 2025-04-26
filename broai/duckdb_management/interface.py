@@ -1,12 +1,12 @@
 import duckdb
-from typing import Any, Literal, List, Dict, Optional
+from typing import Any, Literal, List, Dict, Optional, Tuple
 from broai.duckdb_management.utils import get_create_table_query, get_select_query, get_insert_query, get_batch_update_query, get_delete_query
 import pandas as pd
 import os
 
 class DuckStoreInterface:
-    def __init__(self, db:str, table:str, schemas:dict):
-        self.db = db
+    def __init__(self, db_name:str, table:str, schemas:dict):
+        self.db_name = db_name
         self.table = table
         self.__schemas = schemas
 
@@ -14,13 +14,17 @@ class DuckStoreInterface:
         return self.__schemas
     
     def sql(self, query:str)->None:
-        with duckdb.connect(self.db) as conn:
+        with duckdb.connect(self.db_name) as conn:
             conn.sql(query)
     
     def sql_df(self, query:str)->pd.DataFrame:
-        with duckdb.connect(self.db) as conn:
+        with duckdb.connect(self.db_name) as conn:
             return conn.sql(query).df()
 
+    def executemany(self, query, rows:List[Tuple[Any]]):
+        with duckdb.connect(self.db_name) as con:
+            con.executemany(query, rows)
+    
     def delete_table(self)->None:
         query = f"""DELETE FROM {self.table};"""
         self.sql(query)
@@ -33,11 +37,11 @@ class DuckStoreInterface:
         query = get_create_table_query(table=self.table, schemas=self.show_schemas())
         self.sql(query)
 
-    def remove_database(self, confirm:Literal["remove database"]=None)->None:
-        if confirm == "remove database":
-            os.remove(self.db)
+    def remove_database(self, confirm:str=None)->None:
+        if confirm == f"remove {self.db_name}":
+            os.remove(self.db_name)
             return
-        print("If you want to remove database, use confirm 'remove database'")
+        print(f"If you want to remove database, use confirm 'remove {self.db_name}'")
 
     def add(self, fields:List[str], data:str):
         query = get_insert_query(table=self.table, fields=fields, data=data)
