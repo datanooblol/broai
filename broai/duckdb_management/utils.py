@@ -38,3 +38,18 @@ def get_delete_query(table:str, where_condition:str):
         where_condition = where_condition[len(text):]
     query = f"""DELETE FROM {table} WHERE {where_condition};"""
     return query
+
+def replace_single_quote(text:str):
+    return text.replace("'", "<|single_quote|>")
+
+def reverse_single_quote(text:str):
+    return text.replace("<|single_quote|>", "'")
+
+class DataTypeConversion:
+    @staticmethod
+    def convert_single_quote(text:str):
+        return text.replace("'", "<|single_quote|>")
+
+    @staticmethod        
+    def reverse_single_quote(text:str):
+        return text.replace("<|single_quote|>", "'")
