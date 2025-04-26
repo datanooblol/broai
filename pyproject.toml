@@ -4,6 +4,9 @@ version = "0.1.5"
 description = "You ain't a real bro 'til you roll with BroAI"
 readme = "README.md"
 requires-python = ">=3.11"
+authors = [
+    {name="datanooblol"}
+]
 dependencies = [
     "boto3>=1.37.35",
     "duckdb>=1.2.2",
