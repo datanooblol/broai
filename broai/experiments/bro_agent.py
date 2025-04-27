@@ -1,13 +1,10 @@
 from typing import Any, Callable, List, Union
 from pydantic import BaseModel
 from broai.prompt_management.core import PromptGenerator
-from broai.prompt_management.core import Persona, Instructions, Example, Examples
-from broai.prompt_management.utils import get_input, get_json_schema, parse_json_output
+from broai.prompt_management.core import Persona, Instructions
+from broai.prompt_management.utils import get_input, parse_json_output
 from broai.llm_management.interface import LLMChatInterface
 from broai.experiments.utils import experiment
-
-class InputFormat(BaseModel):
-    content:str
 
 class BroAgent:
     def __init__(
@@ -37,10 +34,10 @@ class BroAgent:
     @experiment
     def content_extractor(self, text:str):
         pg = PromptGenerator(
-            persona="You are a content extractor.",
+            persona=Persona(name="BroAI", description="You are a content extractor."),
             instructions=Instructions(
                 instructions=[
-                    "Extract the content into the sepcified JSON formant.",
+                    "Extract the content into the sepcified JSON format.",
                 ],
             ),
             structured_output=self.prompt_generator.structured_output,
@@ -59,7 +56,6 @@ class BroAgent:
             try:
                 return self.content_extractor(text)
             except Exception as e2:
-                # Final fallback: maybe log, return raw text, or raise custom error
                 print(f"\033[91mBoth parse_structured_output and content_extractor failed:\n{e1}\n{e2}\033[0m")
                 return None
 
@@ -82,9 +78,9 @@ class BroAgent:
         while self.cnt < self.retry:
             response = self._run(request)
             if response is not None:
-                self.cnt=0
+                self.cnt = 0
                 return response
-            self.cnt+=1
+            self.cnt += 1
         if response is None:
             # fallback is None -> default message
             if self.prompt_generator.fallback is None:
