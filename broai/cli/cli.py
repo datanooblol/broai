@@ -1,4 +1,3 @@
-# broai/cli/cli.py
 import click
 from pathlib import Path
 import shutil
@@ -50,6 +49,36 @@ def jupyter_init():
 def init():
     """Initialize a new BroAI project."""
     jupyter_init()
+
+@main.command()
+@click.argument("path", type=click.Path(file_okay=False, dir_okay=True))  # Remove exists=True
+@click.argument("agent_name", type=str)
+def add_agent(path, agent_name):
+    """Create a new agent Python file at the specified location."""
+    # Define the source template file
+    template_src = Path(__file__).parent / "agent_template.py"
+    
+    # Define the destination file path
+    agent_file = Path(path) / f"{agent_name}.py"
+
+    # Create the directory if it doesn't exist
+    agent_file.parent.mkdir(parents=True, exist_ok=True)  # Will create the full path if necessary
+
+    # Check if the agent file already exists
+    if agent_file.exists():
+        print(f"[bold red]❌ File '{agent_file}' already exists![/bold red]")
+        return
+
+    # Check if the template exists
+    if not template_src.exists():
+        print(f"[bold red]❌ Template file '{template_src}' not found![/bold red]")
+        return
+    
+    # Copy the template to the new agent file
+    shutil.copy(template_src, agent_file)
+
+    print(f"[bold green]✅ Created agent file at '{agent_file}' from template.[/bold green]")
+
 
 @main.command(hidden=True)
 @click.argument("part", type=click.Choice(["patch", "minor", "major"]))
