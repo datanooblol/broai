@@ -53,6 +53,11 @@ def init():
 
 @main.command(hidden=True)
 @click.argument("part", type=click.Choice(["patch", "minor", "major"]))
-def bump(part):
-    """Bump the version (patch, minor, major)."""
-    bump_version(part)
+@click.option("--auto", is_flag=True, help="Automatically bump based on the latest PyPI version")
+def bump(part, auto):
+    """Bump the version (patch, minor, major) and sync with PyPI."""
+    if auto:
+        package_name = "broai"  # Update this if needed
+        bump_version(part, package_name)
+    else:
+        bump_version(part, "broai")

@@ -1,25 +1,31 @@
+import requests
 import re
 from pathlib import Path
-import tomlkit
 from rich import print
+import tomlkit
 
-def bump_version(part: str):
+def get_latest_pypi_version(package_name: str) -> str:
+    """Fetch the latest version of the package from PyPI."""
+    url = f"https://pypi.org/pypi/{package_name}/json"
+    response = requests.get(url)
+    
+    if response.status_code != 200:
+        print(f"[bold red]❌ Failed to fetch the latest version from PyPI![/bold red]")
+        return None
+    
+    data = response.json()
+    return data["info"]["version"]
+
+def bump_version(part: str, package_name: str):
     """Bump the version (patch, minor, major) in __version__.py and pyproject.toml."""
-    # Path to the version file
-    version_file = Path(__file__).parent.parent / "__version__.py"
+    latest_version = get_latest_pypi_version(package_name)
     
-    # Read the current version from __version__.py
-    content = version_file.read_text()
-    match = re.search(r'__version__ = "(\d+)\.(\d+)\.(\d+)"', content)
-    
-    if not match:
-        print("[bold red]❌ Version string not found in __version__.py![/bold red]")
+    if not latest_version:
         return
 
-    # Extract the version parts
-    major, minor, patch = map(int, match.groups())
+    # Extract the version parts from the latest PyPI version
+    major, minor, patch = map(int, latest_version.split('.'))
 
-    # Bump the version based on the input
     if part == "patch":
         patch += 1
     elif part == "minor":
@@ -30,31 +36,28 @@ def bump_version(part: str):
         minor = 0
         patch = 0
 
-    # Create the new version string
     new_version = f'{major}.{minor}.{patch}'
-    
-    # Update __version__.py
-    new_content = f'__version__ = "{new_version}"\n'
-    version_file.write_text(new_content)
+    print(f"[bold blue]Latest version on PyPI: {latest_version}[/bold blue]")
+    print(f"[bold green]Bumping to new version: {new_version}[/bold green]")
 
-    print(f"[bold green]✅ Bumped version to {new_version} in __version__.py[/bold green]")
+    # Now bump the version in __version__.py and pyproject.toml
+    update_version_files(new_version)
 
-    # Now update the version in pyproject.toml
-    update_pyproject_version(new_version)
+def update_version_files(new_version: str):
+    """Update both __version__.py and pyproject.toml with the new version."""
+    version_file = Path(__file__).parent.parent / "__version__.py"
+    version_file.write_text(f'__version__ = "{new_version}"\n')
 
-def update_pyproject_version(new_version: str):
-    """Update the version in pyproject.toml."""
-    pyproject_file = Path(__file__).parent.parent / "pyproject.toml"
+    print(f"[bold green]✅ Bumped version in __version__.py to {new_version}[/bold green]")
+
+    # Update pyproject.toml
+    toml_file = Path(__file__).parent.parent.parent / "pyproject.toml"
+    with open(toml_file, "r") as f:
+        toml_data = tomlkit.load(f)
     
-    # Read the TOML file
-    with open(pyproject_file, "r") as f:
-        pyproject_data = tomlkit.parse(f.read())
-    
-    # Update the version field in the TOML
-    pyproject_data["project"]["version"] = new_version
-    
-    # Write the changes back to pyproject.toml
-    with open(pyproject_file, "w") as f:
-        f.write(tomlkit.dumps(pyproject_data))
-    
-    print(f"[bold green]✅ Bumped version to {new_version} in pyproject.toml[/bold green]")
+    toml_data["project"]["version"] = new_version
+
+    with open(toml_file, "w") as f:
+        tomlkit.dump(toml_data, f)
+
+    print(f"[bold green]✅ Bumped version in pyproject.toml to {new_version}[/bold green]")
