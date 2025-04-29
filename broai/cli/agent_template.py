@@ -38,7 +38,35 @@ prompt_generator = PromptGenerator(
     fallback=StructuredOutput(respond="Fall back is used when parsing structured_output fails or LLM service yields error")
 )
 
-agent = BroAgent(
-    prompt_generator=prompt_generator,
-    model=bedrock_model
-)
+class Agent:
+    def __init__(self):
+        self.agent = BroAgent(prompt_generator=prompt_generator, model=bedrock_model)
+
+    def run(self, payload: BaseModel):
+        """
+        A wrapper method that extracts and updates the payload, runs the model,
+        and populates the answer field in the payload.
+
+        Args:
+            payload (BaseModel): A Pydantic BaseModel containing elements used in InputMessage.
+
+        Returns:
+            str: The generated answer based on the input message.
+
+        Example:
+            ```python
+            from pydantic import BaseModel, Field
+
+            class Payload(BaseModel):
+                message: str = Field(description="A message used with InputMessage")
+                answer: str = Field(description="The answer based on the input message, a default as None indicates that this element will be added later in the process or later stage", default=None)
+
+            payload = Payload(message="Hello There!")
+            agent = Agent()
+            agent.run(payload)
+            print(payload.answer)  # Hi there, nice to meet you!
+            ```
+        """
+        request = InputMessage(**payload.model_dump())
+        payload.answer = self.agent.run(request)
+        return payload.answer

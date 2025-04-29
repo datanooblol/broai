@@ -131,7 +131,10 @@ class DuckVectorStore(BaseVectorStore):
             return self.sql_df(query=query, params=dict(searchVector=vector))
         return self.sql_contexts(query=query, params=dict(searchVector=vector))
 
-    def fulltext_search(self, search_query:str, limit:int=5, context:bool=True):
+    def fulltext_search(self, search_query:str, filter_metadata:Dict[str, Any]=None, context:bool=True, limit:int=None):
+        if limit is None or not isinstance(limit, int):
+            limit = self.limit
+        filter_query = get_json_where_query(field="metadata", filter_metadata=filter_metadata)
         query = f"""\
         SELECT *
         FROM (
@@ -141,13 +144,49 @@ class DuckVectorStore(BaseVectorStore):
                 fields := 'context'
             ) AS score
             FROM {self.table}
+            {filter_query}
         ) sq
-        ORDER BY score DESC;
+        ORDER BY score DESC
+        LIMIT {limit};
         """
         if context is False:
             return self.sql_df(query=query, params=None)
         return self.sql_contexts(query=query, params=None)
 
+    def hybrid_search(self, search_query:str, filter_metadata:Dict[str, Any]=None, limit:int=None):
+        context = True
+        vs_contexts = self.vector_search(search_query, filter_metadata, context, limit)
+        fts_contexts = self.fulltext_search(search_query, filter_metadata, context, limit)
+        hbs_contexts = []
+        id_list = []
+        for c in vs_contexts+fts_contexts:
+            if c.id not in id_list:
+                id_list.append(c.id)
+                hbs_contexts.append(c)
+        return hbs_contexts
+    
+    def search(self, 
+               search_query:str, 
+               filter_metadata:Dict[str, Any]=None, 
+               context=True,
+               limit:int=None, 
+               search_method:Literal["vector", "fulltext", "hybrid"]="vector"
+              ):
+
+        if limit is None or not isinstance(limit, int):
+            limit = self.limit
+
+        if search_method=='vector':
+            return self.vector_search(search_query, filter_metadata, context, limit)
+        
+        if search_method=='fulltext':
+            return self.fulltext_search(search_query, filter_metadata, context, limit)
+        
+        if search_method=='hybrid':
+            return self.hybrid_search(search_query=search_query, filter_metadata=filter_metadata, limit=limit)
+        
+        raise ValueError(f"search_method: {search_method} is not implemented yet, try: 'vector', 'fulltext', 'hybrid', instead.")
+        
     # ---- [Update] ---- #
     @with_fts_index
     def update_contexts(self, contexts:List[Context]):
