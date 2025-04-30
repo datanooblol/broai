@@ -23,17 +23,24 @@ def consolidate_markdown(chunks: List[str]) -> List[str]:
     max_len = len(chunks)
     idx = 0
     chunk_size = 10
+
     while idx < max_len:
         current_chunk = chunks[idx]
-        if idx == max_len:
+
+        # Safe check for the last element
+        if idx == max_len - 1:
             consolidated.append(current_chunk)
             break
+
         elif len(current_chunk.split(" ")) < chunk_size:
-            consolidated.append(current_chunk + "\n" + chunks[idx + 1])
+            # Only merge if there's a next chunk
+            next_chunk = chunks[idx + 1] if idx + 1 < max_len else ''
+            consolidated.append(current_chunk + "\n" + next_chunk)
             idx += 2
         else:
             consolidated.append(current_chunk)
             idx += 1
+
     return consolidated
 
 def clean_text(text:str) -> str:
