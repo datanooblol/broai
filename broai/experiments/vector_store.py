@@ -38,10 +38,14 @@ class BaseVectorStore:
             df = con.sql(query, params=params).to_df()
         return df
 
-    def executemany(self, query, rows:List[Tuple[Any]]):
+    def execute(self, query, param=None):
+        with duckdb.connect(self.db_name) as conn:
+            return conn.execute(query, param).df()
+
+    def executemany(self, query, param:List[Tuple[Any]]):
         with duckdb.connect(self.db_name) as con:
-            con.executemany(query, rows)
-    
+            return con.executemany(query, param).df()
+
     def show_schemas(self):
         return self.__schemas
 
@@ -116,6 +120,15 @@ class DuckVectorStore(BaseVectorStore):
         query = f"SELECT * FROM {self.table};"
         return self.sql_df(query)
 
+    def search_by_ids(self, ids:List[str]):
+        placeholder = ", ".join(['?']*len(ids))
+        query = f"SELECT * FROM {self.table} WHERE id in ({placeholder})"
+        df = self.execute(query, param=ids)
+        if df.shape[0]==0:
+            return []
+        df = df.loc[:, ["id", "context", "metadata", "type", "updated_at"]].copy()
+        return [Context(id=record["id"], context=record["context"], metadata=json.loads(record["metadata"]), type=record['type'], created_at=record['updated_at']) for record in df.to_dict(orient="records")]
+    
     def read_by_ids(self, ids:List[str]):
         params = ", ".join([f'{i}' for i in ids])
         query = f"SELECT * FROM {self.table} WHERE id IN ({params});"
