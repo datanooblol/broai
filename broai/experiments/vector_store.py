@@ -13,6 +13,14 @@ def validate_baseclass(input_instance, input_name, baseclass):
         raise TypeError(f"{input_name} must be of type, {baseclass.__name__}. Instead got {type(input_instance)}")
     return input_instance
 
+def filter_whitelist_query(whitelist:List[str]) -> str:
+    """This is a util function to create a where clause to filter whitelist metadata.source
+    Args:
+        whitelist (list) : a list of sources, it can be full or partial of it.
+    """
+    query = " OR ".join([f"(metadata ->> 'source' LIKE '%{wl}%')" for wl in whitelist])
+    return f"WHERE {query} "
+
 def get_json_where_query(field:str, filter_metadata:Dict[str, Any]=None):
     if filter_metadata is None:
         return ""
@@ -77,6 +85,9 @@ class DuckVectorStore(BaseVectorStore):
         table (str): Name of the table to store embeddings.
         embedding (BaseEmbeddingModel): An embedding model that implements the `.run()` method.
         limit (int, optional): Default number of top results to return. Defaults to 5.
+
+    Note:
+        filter_metadata : this parameter will be used in vector_search, fulltext_search, hybrid_search, searh for the simplicity.
     """
     def __init__(self, db_name:str, table:str, embedding:BaseEmbeddingModel, limit:int=5):
         self.embedding_model = validate_baseclass(embedding, "embedding", BaseEmbeddingModel)
@@ -134,20 +145,36 @@ class DuckVectorStore(BaseVectorStore):
         query = f"SELECT * FROM {self.table} WHERE id IN ({params});"
         return self.sql_df(query)
 
-    def vector_search(self, search_query:str, filter_metadata:Dict[str, Any]=None, context:bool=True, limit:int=None):
+    def vector_search(self, search_query:str, filter_metadata:str=None, context:bool=True, limit:int=None) -> List[Context] | list:
+        """ a vector search
+        Args:
+            search_query (str) : a search query, it can be a word, phrase, sentence or paragraph
+            filter_metadata (str) : a where clause for filtering metadata. note: you must understand your metadata structure and how duckdb interact with json schema of your structure
+            context (bool) : if true return List[Context(...)], otherwise pd.DataFrame
+            limit (int) : a return limit
+        """
         if limit is None or not isinstance(limit, int):
             limit = self.limit
+        if filter_metadata is None:
+            filter_metadata = ""
         vector = self.embedding_model.run(sentences=[search_query])[0]
-        filter_query = get_json_where_query(field="metadata", filter_metadata=filter_metadata)
-        query = f"""SELECT *, array_cosine_similarity(embedding, $searchVector::FLOAT[{self.embedding_size}]) AS score FROM {self.table} {filter_query} ORDER BY score DESC LIMIT {limit};"""
+        query = f"""SELECT *, array_cosine_similarity(embedding, $searchVector::FLOAT[{self.embedding_size}]) AS score FROM {self.table} {filter_metadata} ORDER BY score DESC LIMIT {limit};"""
         if context is False:
             return self.sql_df(query=query, params=dict(searchVector=vector))
         return self.sql_contexts(query=query, params=dict(searchVector=vector))
 
-    def fulltext_search(self, search_query:str, filter_metadata:Dict[str, Any]=None, context:bool=True, limit:int=None):
+    def fulltext_search(self, search_query:str, filter_metadata:str=None, context:bool=True, limit:int=None) -> List[Context] | list:
+        """ a fulltext search
+        Args:
+            search_query (str) : a search query, it can be a word, phrase, sentence or paragraph
+            filter_metadata (str) : a where clause for filtering metadata. note: you must understand your metadata structure and how duckdb interact with json schema of your structure
+            context (bool) : if true return List[Context(...)], otherwise pd.DataFrame
+            limit (int) : a return limit
+        """
         if limit is None or not isinstance(limit, int):
             limit = self.limit
-        filter_query = get_json_where_query(field="metadata", filter_metadata=filter_metadata)
+        if filter_metadata is None:
+            filter_metadata = ""
         query = f"""\
         SELECT *
         FROM (
@@ -157,7 +184,7 @@ class DuckVectorStore(BaseVectorStore):
                 fields := 'context'
             ) AS score
             FROM {self.table}
-            {filter_query}
+            {filter_metadata}
         ) sq
         ORDER BY score DESC
         LIMIT {limit};
@@ -166,7 +193,14 @@ class DuckVectorStore(BaseVectorStore):
             return self.sql_df(query=query, params=None)
         return self.sql_contexts(query=query, params=None)
 
-    def hybrid_search(self, search_query:str, filter_metadata:Dict[str, Any]=None, limit:int=None):
+    def hybrid_search(self, search_query:str, filter_metadata:str=None, limit:int=None) -> List[Context] | list:
+        """a combination of fulltext search and vector search
+        Args:
+            search_query (str) : a search query, it can be a word, phrase, sentence or paragraph
+            filter_metadata (str) : a where clause for filtering metadata. note: you must understand your metadata structure and how duckdb interact with json schema of your structure
+            context (bool) : if true return List[Context(...)], otherwise pd.DataFrame
+            limit (int) : a return limit
+        """
         context = True
         vs_contexts = self.vector_search(search_query, filter_metadata, context, limit)
         fts_contexts = self.fulltext_search(search_query, filter_metadata, context, limit)
@@ -180,12 +214,19 @@ class DuckVectorStore(BaseVectorStore):
     
     def search(self, 
                search_query:str, 
-               filter_metadata:Dict[str, Any]=None, 
+               filter_metadata:str = None, 
                context=True,
                limit:int=None, 
                search_method:Literal["vector", "fulltext", "hybrid"]="vector"
-              ):
-
+              ) -> List[Context] | list:
+        """a wrapper method for vector, fulltext, hybrid
+        Args:
+            search_query (str) : a search query, it can be a word, phrase, sentence or paragraph
+            filter_metadata (str) : a where clause for filtering metadata. note: you must understand your metadata structure and how duckdb interact with json schema of your structure
+            context (bool) : if true return List[Context(...)], otherwise pd.DataFrame
+            limit (int) : a return limit
+            search_method (str) : a search method
+        """
         if limit is None or not isinstance(limit, int):
             limit = self.limit
 
