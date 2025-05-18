@@ -1,19 +1,17 @@
-from typing import Any, Dict, List, Literal
+from typing import Any, Dict, List
 import boto3
-import requests
-import os
-
 from broai.llm_management.interface import LLMChatInterface
+
 
 class BedrockOllamaChat(LLMChatInterface):
     def __init__(
             self, 
-            model_name:str="us.meta.llama3-2-11b-instruct-v1:0", 
-            temperature:float=0, 
-            region_name:str="us-west-2",
-            aws_access_key_id:str=None,
-            aws_secret_access_key:str=None,
-            aws_session_token:str=None
+            model_name: str = "us.meta.llama3-2-11b-instruct-v1:0",
+            temperature: float = 0,
+            region_name: str = "us-west-2",
+            aws_access_key_id: str = None,
+            aws_secret_access_key: str = None,
+            aws_session_token: str = None
     ):
         self.model_name = model_name
         self.temperature = temperature
@@ -32,16 +30,20 @@ class BedrockOllamaChat(LLMChatInterface):
         }
         return boto3.client(**param)
 
-    def UserMessage(self, text:str)->Dict[str, str]:
-        return {"role": "user", "content": [{"text": text}]}
-    
-    def AIMessage(self, text:str)->Dict[str, str]:
+    def UserMessage(self, text: str, image_bytes=None, image_format: str = None) -> Dict[str, Any]:
+        content = [{"text": text}]
+        if image_bytes:
+            image = {"image": {"format": image_format, "source": {"bytes": image_bytes}}}
+            content.append(image)
+        return {"role": "user", "content": content}
+
+    def AIMessage(self, text: str) -> Dict[str, str]:
         return {"role": "assistant", "content": [{"text": text}]}
-    
-    def SystemMessage(self, text:str)->List[Dict[str, str]]:
+
+    def SystemMessage(self, text: str) -> List[Dict[str, str]]:
         return [{"text": text}]
 
-    def run(self, system_prompt:str, messages:List[Dict[str, str]])->str:
+    def run(self, system_prompt: str, messages: List[Dict[str, Any]]) -> str:
         model = self.get_model()
         response = model.converse(
             modelId=self.model_name,
